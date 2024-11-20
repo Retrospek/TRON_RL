@@ -40,6 +40,9 @@ class Bike:
         self.trail.append((self.x, self.y))
 
     def change_direction(self, direction):
+        # Prevent turning 180 degrees directly (can't go back on itself)
+        if (self.direction[0] == -direction[0] and self.direction[1] == -direction[1]):
+            return  # Don't allow 180-degree turns
         self.direction = direction
 
     def draw(self):
@@ -47,11 +50,12 @@ class Bike:
             pygame.draw.rect(screen, self.color, pygame.Rect(segment[0], segment[1], 10, 10))
 
     def check_collision(self):
+        # Collision with walls
         if self.x < 0 or self.x >= WIDTH or self.y < 0 or self.y >= HEIGHT:
             self.alive = False  # Collision with wall
+        # Collision with own trail
         if (self.x, self.y) in self.trail[:-1]:
             self.alive = False  # Collision with own trail
-
 
 def show_text(text, x, y, font, color):
     """Helper function to display text on screen."""
@@ -66,13 +70,13 @@ def game_start_screen():
     show_text("Tron Lightcycle Game", WIDTH // 2 - 150, HEIGHT // 4, font, WHITE)
     show_text("Control the bikes to avoid crashing!", WIDTH // 2 - 150, HEIGHT // 3, font, WHITE)
     show_text("Press Arrow keys to control the bikes.", WIDTH // 2 - 180, HEIGHT // 2, font, WHITE)
-    show_text("Left/Right arrows to turn, Up to go forward.", WIDTH // 2 - 180, HEIGHT // 1.8, font, WHITE)
+    show_text("Left/Right arrows to turn, Up/Down to move.", WIDTH // 2 - 180, HEIGHT // 1.8, font, WHITE)
     show_text("Game starts in:", WIDTH // 2 - 100, HEIGHT // 1.5, font, WHITE)
     
     pygame.display.update()
     pygame.time.wait(1000)  # Wait for 1 second to show instructions
     
-    # Countdown from 10 to 1
+    # Countdown from 5 to 1
     for countdown in range(5, 0, -1):
         screen.fill(BLACK)
         show_text(f"Game starts in: {countdown}", WIDTH // 2 - 100, HEIGHT // 2, font, WHITE)
@@ -80,7 +84,6 @@ def game_start_screen():
         pygame.time.wait(1000)  # Wait for 1 second per countdown
     
     pygame.time.wait(500)  # Wait for a moment after countdown ends
-
 
 def main_game_loop():
     """Main game loop."""
@@ -108,6 +111,8 @@ def main_game_loop():
             bike1.change_direction((1, 0))  # Move right
         elif keys[pygame.K_UP]:
             bike1.change_direction((0, -1))  # Move up
+        elif keys[pygame.K_DOWN]:
+            bike1.change_direction((0, 1))  # Move down
         
         # Control bike 2
         if keys[pygame.K_a]:
@@ -116,6 +121,8 @@ def main_game_loop():
             bike2.change_direction((1, 0))  # Move right
         elif keys[pygame.K_w]:
             bike2.change_direction((0, -1))  # Move up
+        elif keys[pygame.K_s]:
+            bike2.change_direction((0, 1))  # Move down
 
         # Move both bikes
         bike1.move()
@@ -143,8 +150,6 @@ def main_game_loop():
         show_text("Game Over! Bike 1 Wins!", WIDTH // 2 - 150, HEIGHT // 2, font, WHITE)
     
     pygame.display.update()
-    #pygame.time.wait(2000)  # Wait for 2 seconds before closing the game
-
 
 if __name__ == "__main__":
     # Show the start screen with instructions and countdown
