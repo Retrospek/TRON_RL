@@ -1,33 +1,26 @@
-import gym
-import numpy as np
-import random
-from entire import Tron2Env
+from entire import Tron2Env  # Make sure this import matches your file structure
 
-# Initialize the environment
-env = Tron2Env()
+def test_environment():
+    env = Tron2Env()
+    obs = env.reset()
+    
+    # Run for a few steps
+    for _ in range(10):  # Test 10 steps
+        # Example actions: Agent 1 moves right (1), Agent 2 moves left (3)
+        actions = [1, 3]
+        
+        obs, rewards, dones, _, info = env.step(actions)
+        env.render()  # This will show the game window
+        
+        print(f"Step {info['steps_taken']}:")
+        print(f"Agent 1 Position: {obs['agent1']}")
+        print(f"Agent 2 Position: {obs['agent2']}")
+        print(f"Rewards: {rewards}")
+        print(f"Done: {dones}")
+        print("-" * 50)
+        
+        if dones[0]:
+            break
 
-# Reset the environment to initialize the agents and board
-state = env.reset()
-
-# Run a few steps in the environment
-done = False
-for _ in range(100):  # Limit to 100 steps to avoid infinite loop
-    if done:
-        break
-    
-    # Randomly select actions for Agent 1 and Agent 2 (just for testing)
-    action1 = random.randint(0, 3)  # Random direction for Agent 1 (0=up, 1=right, 2=down, 3=left)
-    action2 = random.randint(0, 3)  # Random direction for Agent 2
-    
-    # Step forward in the environment
-    action = [action1, action2]
-    state, rewards, done, _, _ = env.step(action)
-    
-    # Print the positions of the agents
-    print(f"Agent 1 Position: {state['agent1']}, Agent 2 Position: {state['agent2']}")
-    
-    # Render the environment (this will pop up a window showing the game)
-    env.render()
-
-# Close the environment
-env.close()
+if __name__ == "__main__":
+    test_environment()
