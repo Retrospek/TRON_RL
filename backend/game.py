@@ -1,72 +1,29 @@
 import pygame
 import random
+from bike import Bike
 
-# Initialize pygame
 pygame.init()
 
-# Screen dimensions
 WIDTH, HEIGHT = 800, 600
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Tron Lightcycle Game")
 
-# Colors
 WHITE = (255, 255, 255)
 CYAN = (0, 255, 255)
 MAGENTA = (255, 0, 255)
 BLACK = (0, 0, 0)
 
-# FPS: Increase it for faster movement
-FPS = 30  # Increased FPS to make the game run faster
+FPS = 30
 clock = pygame.time.Clock()
 
-# Font for text
 font = pygame.font.SysFont("Arial", 30)
 
-# Bike class
-class Bike:
-    def __init__(self, color, x, y):
-        self.color = color
-        self.x = x
-        self.y = y
-        self.direction = (0, 1)  # Initial direction is moving down
-        self.trail = [(self.x, self.y)]
-        self.alive = True
-        self.speed = 10  # Increased speed (moving more pixels per frame)
-
-    def move(self):
-        # Move the bike by adding the direction to the position
-        self.x += self.direction[0] * self.speed
-        self.y += self.direction[1] * self.speed
-        self.trail.append((self.x, self.y))
-
-    def change_direction(self, direction):
-        # Prevent turning 180 degrees directly (can't go back on itself)
-        if (self.direction[0] == -direction[0] and self.direction[1] == -direction[1]):
-            return  # Don't allow 180-degree turns
-        self.direction = direction
-
-    def draw(self):
-        for segment in self.trail:
-            pygame.draw.rect(screen, self.color, pygame.Rect(segment[0], segment[1], 10, 10))
-
-    def check_collision(self):
-        # Collision with walls
-        if self.x < 0 or self.x >= WIDTH or self.y < 0 or self.y >= HEIGHT:
-            self.alive = False  # Collision with wall
-        # Collision with own trail
-        if (self.x, self.y) in self.trail[:-1]:
-            self.alive = False  # Collision with own trail
-
 def show_text(text, x, y, font, color):
-    """Helper function to display text on screen."""
     label = font.render(text, True, color)
     screen.blit(label, (x, y))
 
 def game_start_screen():
-    """Show instructions and countdown before the game starts."""
     screen.fill(BLACK)
-    
-    # Display the instructions
     show_text("Tron Lightcycle Game", WIDTH // 2 - 150, HEIGHT // 4, font, WHITE)
     show_text("Control the bikes to avoid crashing!", WIDTH // 2 - 150, HEIGHT // 3, font, WHITE)
     show_text("Press Arrow keys to control the bikes.", WIDTH // 2 - 180, HEIGHT // 2, font, WHITE)
@@ -74,89 +31,110 @@ def game_start_screen():
     show_text("Game starts in:", WIDTH // 2 - 100, HEIGHT // 1.5, font, WHITE)
     
     pygame.display.update()
-    pygame.time.wait(1000)  # Wait for 1 second to show instructions
+    pygame.time.wait(1000)
     
-    # Countdown from 5 to 1
     for countdown in range(5, 0, -1):
         screen.fill(BLACK)
         show_text(f"Game starts in: {countdown}", WIDTH // 2 - 100, HEIGHT // 2, font, WHITE)
         pygame.display.update()
-        pygame.time.wait(1000)  # Wait for 1 second per countdown
+        pygame.time.wait(1000)
     
-    pygame.time.wait(500)  # Wait for a moment after countdown ends
+    pygame.time.wait(500)
 
-def main_game_loop():
-    """Main game loop."""
-    # Initialize bikes
-    bike1 = Bike(CYAN, WIDTH // 4, HEIGHT // 2)
-    bike2 = Bike(MAGENTA, 3 * WIDTH // 4, HEIGHT // 2)
-    
-    # Game loop
-    while bike1.alive and bike2.alive:
-        screen.fill(BLACK)
-        
-        # Event handling
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                return
-        
-        # Get the keys pressed for controlling the bikes
-        keys = pygame.key.get_pressed()
+class GAME_INFO:
+    def __init__(self, bikeM_trail, bikeC_trail, bikeM_Score, bikeC_Score):
+        self.bikeM_trail = bikeM_trail
+        self.bikeC_trail = bikeC_trail
+        self.bikeM_Score = bikeM_Score
+        self.bikeC_Score = bikeC_Score
 
-        # Control bike 1
-        if keys[pygame.K_LEFT]:
-            bike1.change_direction((-1, 0))  # Move left
-        elif keys[pygame.K_RIGHT]:
-            bike1.change_direction((1, 0))  # Move right
-        elif keys[pygame.K_UP]:
-            bike1.change_direction((0, -1))  # Move up
-        elif keys[pygame.K_DOWN]:
-            bike1.change_direction((0, 1))  # Move down
-        
-        # Control bike 2
-        if keys[pygame.K_a]:
-            bike2.change_direction((-1, 0))  # Move left
-        elif keys[pygame.K_d]:
-            bike2.change_direction((1, 0))  # Move right
-        elif keys[pygame.K_w]:
-            bike2.change_direction((0, -1))  # Move up
-        elif keys[pygame.K_s]:
-            bike2.change_direction((0, 1))  # Move down
+class Game:
 
-        # Move both bikes
-        bike1.move()
-        bike2.move()
+    WHITE = (255, 255, 255)
+    CYAN = (0, 255, 255)
+    MAGENTA = (255, 0, 255)
+    BLACK = (0, 0, 0)
+    FONT = pygame.font.SysFont("comicsans", 50)
 
-        # Check for collisions
-        bike1.check_collision()
-        bike2.check_collision()
+    def __init__(self, window):
+        self.WIDTH, self.HEIGHT = 800, 600
+        self.window = window
+        self.bike1 = Bike(self.CYAN, self.WIDTH // 4, self.HEIGHT // 2)
+        self.bike2 = Bike(self.MAGENTA, 3 * self.WIDTH // 4, self.HEIGHT // 2)
+        self.Bike_M_Score = 0
+        self.Bike_C_Score = 0
+        self.Bik_M_Trail = 0
+        self.Bik_C_Trail = 0
+        self.Bike_M_Trajectory = []
+        self.Bike_C_Trajectory = []
 
-        # Draw the bikes
-        bike1.draw()
-        bike2.draw()
+    def show_text(self, text, x, y, color):
+        label = self.FONT.render(text, True, color)
+        self.window.blit(label, (x, y))
 
-        # Update the screen
+    def game_start_screen(self):
+        self.window.fill(self.BLACK)
+        self.show_text("Tron Lightcycle Game", self.WIDTH // 2 - 150, self.HEIGHT // 4, self.WHITE)
+        self.show_text("Control the bikes to avoid crashing!", self.WIDTH // 2 - 150, self.HEIGHT // 3, self.WHITE)
+        self.show_text("Press Arrow keys to control the bikes.", self.WIDTH // 2 - 180, self.HEIGHT // 2, self.WHITE)
+        self.show_text("Left/Right arrows to turn, Up/Down to move.", self.WIDTH // 2 - 180, self.HEIGHT // 1.8, self.WHITE)
+        self.show_text("Game starts in:", self.WIDTH // 2 - 100, self.HEIGHT // 1.5, self.WHITE)
         pygame.display.update()
+        pygame.time.wait(1000)
+        
+        for countdown in range(5, 0, -1):
+            self.window.fill(self.BLACK)
+            self.show_text(f"Game starts in: {countdown}", self.WIDTH // 2 - 100, self.HEIGHT // 2, self.WHITE)
+            pygame.display.update()
+            pygame.time.wait(1000)
+        
+        pygame.time.wait(500)
 
-        # Set the FPS
-        clock.tick(FPS)
+    def main_game_loop(self):
+        while self.bike1.alive and self.bike2.alive:
+            self.window.fill(self.BLACK)
 
-    # Display game over message
-    screen.fill(BLACK)
-    if not bike1.alive:
-        show_text("Game Over! Bike 2 Wins!", WIDTH // 2 - 150, HEIGHT // 2, font, WHITE)
-    elif not bike2.alive:
-        show_text("Game Over! Bike 1 Wins!", WIDTH // 2 - 150, HEIGHT // 2, font, WHITE)
-    
-    pygame.display.update()
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    return
 
-if __name__ == "__main__":
-    # Show the start screen with instructions and countdown
-    game_start_screen()
-    
-    # Start the main game loop after countdown
-    main_game_loop()
+            keys = pygame.key.get_pressed()
 
-    # Quit pygame
-    pygame.quit()
+            if keys[pygame.K_LEFT]:
+                self.bike1.change_direction((-1, 0))
+            elif keys[pygame.K_RIGHT]:
+                self.bike1.change_direction((1, 0))
+            elif keys[pygame.K_UP]:
+                self.bike1.change_direction((0, -1))
+            elif keys[pygame.K_DOWN]:
+                self.bike1.change_direction((0, 1))
+
+            if keys[pygame.K_a]:
+                self.bike2.change_direction((-1, 0))
+            elif keys[pygame.K_d]:
+                self.bike2.change_direction((1, 0))
+            elif keys[pygame.K_w]:
+                self.bike2.change_direction((0, -1))
+            elif keys[pygame.K_s]:
+                self.bike2.change_direction((0, 1))
+
+            self.bike1.move()
+            self.bike2.move()
+
+            self.bike1.check_collision()
+            self.bike2.check_collision()
+
+            self.bike1.draw(self.window)
+            self.bike2.draw(self.window)
+
+            pygame.display.update()
+            clock.tick(FPS)
+
+        self.window.fill(self.BLACK)
+        if not self.bike1.alive:
+            self.show_text("Game Over! Bike 2 Wins!", self.WIDTH // 2 - 150, self.HEIGHT // 2, self.WHITE)
+        elif not self.bike2.alive:
+            self.show_text("Game Over! Bike 1 Wins!", self.WIDTH // 2 - 150, self.HEIGHT // 2, self.WHITE)
+
+        pygame.display.update()
