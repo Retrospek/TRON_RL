@@ -42,16 +42,15 @@ class TronBaseEnvTwoPlayer(gym.Env):
         
         self.observation_space = [
             # So like these are the five things I want to measure in the observation space:
-                # - Trapped=-1.0 to Not Trapped=1.0
                 # - Distance from Opponent HEAD X direction from -1.0 to 1.0 normalized
                 # - Distance from Opponent HEAD Y direction from -1.0 to 1.0 normalized
                 # - Dot product between you and opponent direction vectors, so like parallel = [-1.0,0)U(0,-1.0) or perp=0
                 # ^ Normalized
-            spaces.Box(low=-1.0, high=1.0, shape=(4,), dtype=np.float32),
-            spaces.Box(low=-1.0, high=1.0, shape=(4,), dtype=np.float32)
+            spaces.Box(low=-1.0, high=1.0, shape=(3,), dtype=np.float32),
+            spaces.Box(low=-1.0, high=1.0, shape=(3,), dtype=np.float32)
         ]
 
-        self.observation_state = [np.zeros(4), np.zeros(4)]
+        self.state = [np.zeros(3), np.zeros(3)]
         self.steps_taken = 0
         self.max_moves = 300
 
@@ -63,14 +62,14 @@ class TronBaseEnvTwoPlayer(gym.Env):
         # Reset the environment to the initial state so new episode can be run
         # ----------
 
-        self.state = [np.random.uniform(-1.0, 1.0, (4,)), np.random.uniform(-1.0, 1.0, (4,))]
+        self.state = [np.random.uniform(-1.0, 1.0, (3,)), np.random.uniform(-1.0, 1.0, (3,))]
         self.trails = [set(), set()]
         self.agent_positions = [(random.randint(0, self.board_width), random.randint(0, self.board_height)),
                                 (random.randint(0, self.board_width), random.randint(0, self.board_height))]
         
-        self.trail[0].add(self.agent_positions[0])
-        self.trail[1].add(self.agent_positions[1])
-
+        self.trails[0].add(self.agent_positions[0])
+        self.trails[1].add(self.agent_positions[1])
+        
         self.steps_taken = 0
         
         return self.state, {}
@@ -104,8 +103,15 @@ class TronBaseEnvTwoPlayer(gym.Env):
         new_position_agent1 = self._compute_new_position(self.agent_positions[0], agent1_action)
         new_position_agent2 = self._compute_new_position(self.agent_positions[1], agent2_action)
 
+        # First check if head one collision because they both are trash then or if they both collide at the same time lmaoo
+
+        if self._is_collision(new_position_agent1, 0) and self._is_collision(new_position_agent2, 1):
+            agent1_reward = -10.0
+            agent2_reward = -10.0
+            done = True
+
         # Collision check for Agent 1
-        if self._check_collision(new_position_agent1, 0):  # Check if Agent 1 collides
+        elif self._is_collision(new_position_agent1, 0):  # Check if Agent 1 collides
             agent1_reward = -10.0  # Damn you agent 1 lost
             agent2_reward = 10.0 # AMAZING!!!! Agent 1 won
             done = True  # End the game if there's a collision
@@ -113,7 +119,7 @@ class TronBaseEnvTwoPlayer(gym.Env):
         #    agent1_reward = 1.0 if actions[0] == 0 else -1.0  # Normal reward
 
         # Collision check for Agent 2
-        if self._check_collision(new_position_agent2, 1):  # Check if Agent 2 collides
+        elif self._is_collision(new_position_agent2, 1):  # Check if Agent 2 collides
             agent2_reward = -10.0  # Damn you agent 2 lost
             agent1_reward = 10.0 # AMAZING!!!! Agent 1 won
             done = True  # End the game if there's a collision
@@ -129,6 +135,20 @@ class TronBaseEnvTwoPlayer(gym.Env):
             self.trails[1].add(self.agent_positions[1])  
 
         rewards = [agent1_reward, agent2_reward]
+        
+        # --- UPDATE STATE --- #
+        x_diff_agent1 = (self.agent_positions[1][0] - self.agent_positions[0][0]) / self.board_width
+        y_diff_agent1 = (self.agent_positions[1][1] - self.agent_positions[0][1]) / self.board_height
+        x_diff_agent2 = (self.agent_positions[0][0] - self.agent_positions[1][0]) / self.board_width
+        y_diff_agent2 = (self.agent_positions[0][1] - self.agent_positions[1][1]) / self.board_height
+
+        agent1_direction = np.array([np.cos(np.radians(self.direction[0])), np.sin(np.radians(self.direction[0]))])
+        agent2_direction = np.array([np.cos(np.radians(self.direction[1])), np.sin(np.radians(self.direction[1]))])
+
+        dot_product = np.clip(np.dot(agent1_direction, agent2_direction), -1.0, 1.0)
+
+        self.state[0] = np.array([x_diff_agent1, y_diff_agent1, dot_product])
+        self.state[1] = np.array([x_diff_agent2, y_diff_agent2, dot_product])
 
         steps_dict = {"Total Moves": self.steps_taken}
 
