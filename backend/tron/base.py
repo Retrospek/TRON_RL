@@ -42,17 +42,16 @@ class TronBaseEnvTwoPlayer(gym.Env):
         
         self.observation_space = [
             # So like these are the five things I want to measure in the observation space:
-                # - Safe from -1.0 to Unsafe 1.0
                 # - Trapped=-1.0 to Not Trapped=1.0
-                # - Distance from Opponent X direction from -1.0 to 1.0 normalized
-                # - Distance from Opponent Y direction from -1.0 to 1.0 normalized
+                # - Distance from Opponent HEAD X direction from -1.0 to 1.0 normalized
+                # - Distance from Opponent HEAD Y direction from -1.0 to 1.0 normalized
                 # - Dot product between you and opponent direction vectors, so like parallel = [-1.0,0)U(0,-1.0) or perp=0
                 # ^ Normalized
-            spaces.Box(low=-1.0, high=1.0, shape=(5,), dtype=np.float32),
-            spaces.Box(low=-1.0, high=1.0, shape=(5,), dtype=np.float32)
+            spaces.Box(low=-1.0, high=1.0, shape=(4,), dtype=np.float32),
+            spaces.Box(low=-1.0, high=1.0, shape=(4,), dtype=np.float32)
         ]
 
-        self.state = [np.zeros(5), np.zeros(5)]
+        self.observation_state = [np.zeros(4), np.zeros(4)]
         self.steps_taken = 0
         self.max_moves = 300
 
@@ -63,7 +62,15 @@ class TronBaseEnvTwoPlayer(gym.Env):
         # Returning the observation of the initial state
         # Reset the environment to the initial state so new episode can be run
         # ----------
-        self.state = [np.random.uniform(-1.0, 1.0, (5,)), np.random.uniform(-1.0, 1.0, (5,))]
+
+        self.state = [np.random.uniform(-1.0, 1.0, (4,)), np.random.uniform(-1.0, 1.0, (4,))]
+        self.trails = [set(), set()]
+        self.agent_positions = [(random.randint(0, self.board_width), random.randint(0, self.board_height)),
+                                (random.randint(0, self.board_width), random.randint(0, self.board_height))]
+        
+        self.trail[0].add(self.agent_positions[0])
+        self.trail[1].add(self.agent_positions[1])
+
         self.steps_taken = 0
         
         return self.state, {}
@@ -76,13 +83,13 @@ class TronBaseEnvTwoPlayer(gym.Env):
         # This is basically how the game is played and functionality
         # Both agents need to play at the same time
         # ----------
-
         self.steps_taken += 1 # A move has been played no matter if you went forward left or right
         done = self.steps_taken >= self.max_moves
 
         # Sampling moves
-        agent1_next_move = np.random.uniform(-1.0, 1.0, (5,))
-        agent2_next_move = np.random.uniform(-1.0, 1.0, (5,))
+        agent1_action, agent2_action = actions[0], actions[1]
+
+
         
         # Update state 
         self.state[0] = agent1_next_move
