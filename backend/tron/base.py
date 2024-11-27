@@ -89,7 +89,7 @@ class TronBaseEnvTwoPlayer(gym.Env):
         if position in self.trails[0] or position in self.trails[1]:
             return True
         return False
-    
+            
     def step(self, actions):
         # ----------
         # Computes the NEXT OBSERVATION, the reward, and optional info like what's going in the environment
@@ -99,21 +99,40 @@ class TronBaseEnvTwoPlayer(gym.Env):
         self.steps_taken += 1 # A move has been played no matter if you went forward left or right
         done = self.steps_taken >= self.max_moves
 
-        # Sampling moves
         agent1_action, agent2_action = actions[0], actions[1]
 
-        # Update state 
-        self.agent_positions[0] = self._compute_new_position(self.agent_positions[0], actions[0])
-        self.agent_positions[1] = self._compute_new_position(self.agent_positions[1], actions[1])
+        new_position_agent1 = self._compute_new_position(self.agent_positions[0], agent1_action)
+        new_position_agent2 = self._compute_new_position(self.agent_positions[1], agent2_action)
 
-        # Rewards
-        agent1_reward = 1.0 if actions[0] == 0 else -1.0
-        agent2_reward = 1.0 if actions[1] == 0 else -1.0
+        # Collision check for Agent 1
+        if self._check_collision(new_position_agent1, 0):  # Check if Agent 1 collides
+            agent1_reward = -10.0  # Damn you agent 1 lost
+            agent2_reward = 10.0 # AMAZING!!!! Agent 1 won
+            done = True  # End the game if there's a collision
+        #else:
+        #    agent1_reward = 1.0 if actions[0] == 0 else -1.0  # Normal reward
+
+        # Collision check for Agent 2
+        if self._check_collision(new_position_agent2, 1):  # Check if Agent 2 collides
+            agent2_reward = -10.0  # Damn you agent 2 lost
+            agent1_reward = 10.0 # AMAZING!!!! Agent 1 won
+            done = True  # End the game if there's a collision
+
+        #else:
+        #    agent2_reward = 1.0 if actions[1] == 0 else -1.0  # Normal reward
+
+        # Update agent positions if no collision
+        if not done:
+            self.agent_positions[0] = new_position_agent1
+            self.agent_positions[1] = new_position_agent2
+            self.trails[0].add(self.agent_positions[0]) 
+            self.trails[1].add(self.agent_positions[1])  
+
         rewards = [agent1_reward, agent2_reward]
 
         steps_dict = {"Total Moves": self.steps_taken}
 
-        return self.state, rewards, [done, done], [False, False], steps_dict
+        return self.state, rewards, [done], [False, False], steps_dict
 
     def render(self, mode=metadata["render.modes"]):
         # ----------
