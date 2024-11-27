@@ -75,8 +75,21 @@ class TronBaseEnvTwoPlayer(gym.Env):
         
         return self.state, {}
     
-    def collision(self, action):
-        pass
+    def _compute_new_position(self, current_pos, action):
+        x, y = current_pos
+        if action == 0:  # Left
+            x -= self.speed
+        elif action == 1:  # Right
+            x += self.speed
+        elif action == 2:  # Forward
+            y -= self.speed
+        return (x, y)
+    
+    def _is_collision(self, position, agent_id):
+        if position in self.trails[0] or position in self.trails[1]:
+            return True
+        return False
+    
     def step(self, actions):
         # ----------
         # Computes the NEXT OBSERVATION, the reward, and optional info like what's going in the environment
@@ -89,11 +102,9 @@ class TronBaseEnvTwoPlayer(gym.Env):
         # Sampling moves
         agent1_action, agent2_action = actions[0], actions[1]
 
-
-        
         # Update state 
-        self.state[0] = agent1_next_move
-        self.state[1] = agent2_next_move
+        self.agent_positions[0] = self._compute_new_position(self.agent_positions[0], actions[0])
+        self.agent_positions[1] = self._compute_new_position(self.agent_positions[1], actions[1])
 
         # Rewards
         agent1_reward = 1.0 if actions[0] == 0 else -1.0
