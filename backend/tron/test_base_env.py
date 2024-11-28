@@ -1,5 +1,5 @@
 import gym
-from testr import TronBaseEnvTwoPlayer  # Assuming the environment is saved in TronBaseEnvTwoPlayer.py
+from base import TronBaseEnvTwoPlayer  # Assuming the environment is saved in TronBaseEnvTwoPlayer.py
 
 # Create the environment
 env = TronBaseEnvTwoPlayer()
@@ -8,13 +8,14 @@ env = TronBaseEnvTwoPlayer()
 state, _ = env.reset()
 
 # Print initial states of both agents
-print("Initial state:")
-print(f"Agent 1 State: {state[0]}")
-print(f"Agent 2 State: {state[1]}")
+# print("Initial state:")
+# print(f"Agent 1 State: {state[0]}")
+# print(f"Agent 2 State: {state[1]}")
 
 # Run a loop for a few steps (let's say 10 steps in this case)
 for step in range(10):
     # Randomly choose actions for both agents (0 = Left, 1 = Right, 2 = Forward)
+    #print(f"Step Number: {step}")
     actions = [env.action_space[0].sample(), env.action_space[1].sample()]
     
     # Step the environment forward with these actions

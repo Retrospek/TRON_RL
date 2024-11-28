@@ -17,12 +17,10 @@ class TronBaseEnvTwoPlayer(gym.Env):
                 # Shape: Shape of space and bound
 
         # ----- BOUNDS ----- # 
-
         self.board_width = 1024
         self.board_height = 768
         
         # ----- AGENTS ----- #
-
         self.speed = 15 # Increase for faster movement
         self.direction = [0, 180] # Angles where 0 is right and 180 is left
 
@@ -88,7 +86,7 @@ class TronBaseEnvTwoPlayer(gym.Env):
         # Actions involving turn don't move the the thing they just turn the direction angle
         # Agent id = 0 is Agent 1
         # Agend id = 1 is Agent 2
-
+        same_loc = True
         x, y = current_pos
         direction = self.direction[agent_id]  
         #print(direction)
@@ -99,14 +97,14 @@ class TronBaseEnvTwoPlayer(gym.Env):
         elif action == 2:  # Forward makes the thing actually move not the turns themselves
             x += int(self.speed * np.cos(np.radians(int(direction)))) # if deg = 0 then cos = 1 and if deg = 90 then cos = 0, so yeah
             y += int(self.speed * np.sin(np.radians(int(direction))))  # Move based on current direction
-
+            same_loc = False
         # Ensure the direction stays within the 0-360 degree range
         direction = direction % 360 # Need this after several moves made
 
         # Update the agent's direction after the move
         self.direction[agent_id] = direction
         
-        return (x, y), direction  
+        return (x, y), direction, same_loc
     
     def _is_collision(self, position, agent_id, same_loc):
         # ----- Logic ----- #
@@ -114,20 +112,24 @@ class TronBaseEnvTwoPlayer(gym.Env):
         # But before doing that check if the agent has even moved because then same_loc would be False
         # If same_loc == True then that means it turned right because in the step method where it computes new position
         # the position stays the same when you turn other wise you move a certain self.speed forward
-        
+        print(f"same_loc bool: {same_loc}")
         x, y = position
-        if agent_id == 0: # This shit for first Agent
-            if not (0 <= x < self.board_width and 0 <= y < self.board_height):
-                return True  # Out of bounds
-            if position in self.trails[0][1:] or position in self.trails[1]: # Same HERE
-                return True # If hitting trail
+        if same_loc == False:
+            if agent_id == 0: # This shit for first Agent
+                if not (0 <= x < self.board_width and 0 <= y < self.board_height):
+                    return True  # Out of bounds
+                if position in self.trails[0] or position in self.trails[1]: # Same HERE
+                    return True # If hitting trail
 
-        elif agent_id == 1:
-            if not (0 <= x < self.board_width and 0 <= y < self.board_height):
-                return True  # Out of bounds
-            if position in self.trails[0] or position in self.trails[1][1:]: # ^^^^^ <<<This just excludes the neck of the trail
-                return True # If hitting trail
-        return False
+            elif agent_id == 1:
+                if not (0 <= x < self.board_width and 0 <= y < self.board_height):
+                    return True  # Out of bounds
+                if position in self.trails[0] or position in self.trails[1]:
+                    return True # If hitting trail
+            return False
+        
+        else: # If just turned and didn't move
+            return False
 
             
     def step(self, actions):
@@ -142,12 +144,12 @@ class TronBaseEnvTwoPlayer(gym.Env):
         
         agent1_action, agent2_action = actions[0], actions[1]
 
-        new_position_agent1, agent1_direction = self._compute_new_position(self.agent_positions[0], agent1_action, 0)
-        new_position_agent2, agent2_direction = self._compute_new_position(self.agent_positions[1], agent2_action, 1)
+        new_position_agent1, agent1_direction, same_loc_agent1 = self._compute_new_position(self.agent_positions[0], agent1_action, 0)
+        new_position_agent2, agent2_direction, same_loc_agent2 = self._compute_new_position(self.agent_positions[1], agent2_action, 1)
 
         # Check if either agent is out of bounds or hits a trail
-        agent1_collision = self._is_collision(new_position_agent1, 0)
-        agent2_collision = self._is_collision(new_position_agent2, 1)
+        agent1_collision = self._is_collision(new_position_agent1, 0, same_loc_agent1)
+        agent2_collision = self._is_collision(new_position_agent2, 1, same_loc_agent2)
 
         # Reward and termination logic
         if agent1_collision and agent2_collision:
@@ -213,7 +215,7 @@ class TronBaseEnvTwoPlayer(gym.Env):
         # ----------
 
         print(f"Agent 1 State: {self.state[0]}, Agent 2 State: {self.state[1]}, Total Moves: {self.steps_taken}")
-
+        
 
     def close(self):
         # ----------
