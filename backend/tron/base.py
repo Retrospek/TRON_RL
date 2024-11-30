@@ -113,7 +113,7 @@ class TronBaseEnvTwoPlayer(gym.Env):
         # But before doing that check if the agent has even moved because then same_loc would be False
         # If same_loc == True then that means it turned right because in the step method where it computes new position
         # the position stays the same when you turn other wise you move a certain self.speed forward
-        print(f"same_loc bool: {same_loc}")
+        #print(f"same_loc bool: {same_loc}")
         x, y = position
         if same_loc == False:
             if agent_id == 0: # This shit for first Agent

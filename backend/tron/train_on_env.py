@@ -10,44 +10,18 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
+import numpy as np
 
 from base import TronBaseEnvTwoPlayer
 
-# ----- PRELIMINARIES ----- #
 
 env = TronBaseEnvTwoPlayer()
-
-# set up matplotlib
-is_ipython = 'inline' in matplotlib.get_backend()
-if is_ipython:
-    from IPython import display
-
-plt.ion()
-
 # if GPU is to be used
 device = torch.device(
     "cuda" if torch.cuda.is_available() else
     "mps" if torch.backends.mps.is_available() else
     "cpu"
 )
-
-Transition = namedtuple('Transition',
-                        ('state', 'action', 'next_state', 'reward'))
-
-class ReplayMemory(object):
-    def __init__(self, capacity):
-        self.memory = deque([], maxlen=capacity)
-
-    def push(self, *args):
-        self.memory.append(Transition(*args))
-    
-    def sample(self, batch_size):
-        return random.sample(self.memory, batch_size)
-    
-    def __len__(self):
-        return len(self.memory)
-
-# ----- ARTIFICIAL INTELLIGENCE FOR DEEP Q-LEARNING !!!!! ----- #
 
 class Tron_DQN(nn.Module):
     def __init__(self, input_size, action_space):
@@ -64,26 +38,72 @@ class Tron_DQN(nn.Module):
         x = self.fc4(x)
         return x
 
-BATCH_SIZE = 128
-GAMMA = 0.99
-EPS_START = 0.9
-EPS_END = 0.01
-EPS_DECAY = 0.995
-TAU = 0.005
-LR = 1e-4
-
+# Hyperparameters
 n_actions = 3
-state, info = env.reset()
-n_observations = len(state)
 state_dim = 3
 
-# ----- Agent Initialization ----- #
-agent1 = Tron_DQN(state_dim, n_actions).to(device)
-agent2 = Tron_DQN(state_dim, n_actions).to(device)
+LR = 1e-4
+BATCH_SIZE = 64
 
+def create_agent(state_dim, n_actions):
+    current_net = Tron_DQN(state_dim, n_actions).to(device)
+    target_net = Tron_DQN(state_dim, n_actions).to(device)
+    target_net.load_state_dict(current_net.state_dict())
+    
+    return {
+        "currentNET": current_net,
+        "targetNET": target_net,
+        "optimizer": optim.Adam(current_net.parameters(), lr=LR),
+        "memory": deque(maxlen=10000)
+    }
 
-optimizer = optim.AdamW(policy_net.parameters(), lr=LR, amsgrad=True)
-memory = ReplayMemory(10000)
+# Create agents
+agent1 = create_agent(state_dim, n_actions)
+agent2 = create_agent(state_dim, n_actions)
+AGENTS = [agent1, agent2]
 
-steps_done = 0
+def select_action(agent, state):
+    if random.random() < agent["epsilon"]:
+        return random.randint(0, 2)  # 0, 1, or 2
+    with torch.no_grad():
+        state_tensor = torch.FloatTensor(state).unsqueeze(0).to(device)
+        q_values = agent["currentNET"](state_tensor)
+        return q_values.argmax().item()
+    
+def store_transition(agent, state, action, reward, next_state, done):
+    agent["memory"].append((state, action, reward, next_state, done))
+
+def sample_batch(agent):
+    batch = random.sample(agent["memory"], BATCH_SIZE)
+    states, actions, rewards, next_states, dones = zip(*batch)
+
+    return (
+        torch.FloatTensor(states).to(device),
+        torch.LongTensor(actions).to(device),
+        torch.FloatTensor(rewards).to(device),
+        torch.FloatTensor(next_states).to(device),
+        torch.FloatTensor(dones).to(device)
+    )
+
+# ---- TRAINING ----- #
+num_episodes = 1000
+epsilon_start = 1.0
+epsilon_decay = 0.995 # Increase for less reward in later episodes
+epsilon_end = 0.01
+
+for episode in range(num_episodes):
+    state, _ = env.reset()
+    state = torch.tensor(state, dtype=torch.float32, device=device)
+    epsilon = max(epsilon_end, epsilon_start * (epsilon_decay ** episode))
+    done = False
+
+    while not done:
+        # --- Selecting Action --- #
+        actionAgent1 = select_action(state[0], epsilon, agent1)
+        actionAgent2 = select_action(state[1], epsilon, agent2)
+
+        # --- Take the Action --- #
+        next_state, rewards, done, _, _ = env.step([actionAgent1, actionAgent2])
+
+        next_state = torch.tensor 
 
