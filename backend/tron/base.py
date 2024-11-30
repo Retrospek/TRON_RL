@@ -86,6 +86,7 @@ class TronBaseEnvTwoPlayer(gym.Env):
         # Actions involving turn don't move the the thing they just turn the direction angle
         # Agent id = 0 is Agent 1
         # Agend id = 1 is Agent 2
+
         same_loc = True
         x, y = current_pos
         direction = self.direction[agent_id]  

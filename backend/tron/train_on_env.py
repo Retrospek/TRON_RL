@@ -13,7 +13,6 @@ import torch.nn.functional as F
 
 from base import TronBaseEnvTwoPlayer
 
-
 # ----- PRELIMINARIES ----- #
 
 env = TronBaseEnvTwoPlayer()
@@ -64,7 +63,6 @@ class Tron_DQN(nn.Module):
         x = F.relu(self.fc3(x))
         x = self.fc4(x)
         return x
-    
 
 BATCH_SIZE = 128
 GAMMA = 0.99
@@ -79,15 +77,13 @@ state, info = env.reset()
 n_observations = len(state)
 state_dim = 3
 
-# Initialize networks, optimizers, and replay buffers for each agent
-agents = [
-    {"network": Tron_DQN(state_dim, n_actions), "target_network": Tron_DQN(state_dim, n_actions), 
-     "optimizer": optim.Adam(params=Tron_DQN(state_dim, n_actions).parameters(), lr=1e-3), 
-     "memory": deque(maxlen=10000), "epsilon": 1.0},
-    {"network": Tron_DQN(state_dim, n_actions), "target_network": Tron_DQN(state_dim, n_actions), 
-     "optimizer": optim.Adam(params=Tron_DQN(state_dim, n_actions).parameters(), lr=1e-3), 
-     "memory": deque(maxlen=10000), "epsilon": 1.0}
-]
+# ----- Agent Initialization ----- #
+agent1 = Tron_DQN(state_dim, n_actions).to(device)
+agent2 = Tron_DQN(state_dim, n_actions).to(device)
 
 
+optimizer = optim.AdamW(policy_net.parameters(), lr=LR, amsgrad=True)
+memory = ReplayMemory(10000)
+
+steps_done = 0
 
