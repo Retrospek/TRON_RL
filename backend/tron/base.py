@@ -83,12 +83,12 @@ class TronBaseEnvTwoPlayer(gym.Env):
     def _is_collision(self, position, agent_id):
         x, y = position
         if not (0 <= x <= self.board_width and 0 <= y <= self.board_height):
-            print("Out of Board")
+            #print("Out of Board")
             return True  # Out of bounds
-        print(f" So first agent Trail: {self.trails[0]}")
-        print(f" So second agent Trail: {self.trails[1]}")
+        #print(f" So first agent Trail: {self.trails[0]}")
+        #print(f" So second agent Trail: {self.trails[1]}")
         if position in self.trails[0] or position in self.trails[1]:
-            print("Hitting Trail")
+            #print("Hitting Trail")
             return True  # Collision with trail
         return False
 
@@ -136,8 +136,8 @@ class TronBaseEnvTwoPlayer(gym.Env):
             self.trails[0].add(new_position_agent1)
             self.trails[1].add(new_position_agent2)
 
-            agent1_reward = 1
-            agent2_reward = 1
+            agent1_reward += 1
+            agent2_reward += 1
 
             if self.steps_taken >= self.max_moves:
                 done = True
@@ -155,7 +155,7 @@ class TronBaseEnvTwoPlayer(gym.Env):
         self.state[1] = np.array([x_diff_agent2, y_diff_agent2, dot_product])
 
         rewards = [agent1_reward, agent2_reward]
-        print(f"Step {self.steps_taken}: Agent 1 Pos: {self.agent_positions[0]}, Agent 2 Pos: {self.agent_positions[1]}")
+        print(f"Step {self.steps_taken}: Agent 1 Trail: {self.trails[0]}, Agent 2 Trail: {self.trails[1]}")
 
         return self.state, rewards, [done], [False, False], {"steps": self.steps_taken}
 

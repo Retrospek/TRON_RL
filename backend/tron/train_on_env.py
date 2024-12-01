@@ -122,8 +122,8 @@ for episode in range(num_episodes):
             actionAgent2 = select_action(state[1], epsilon, agent)
 
             # Step environment
-            next_state, rewards, done, _, _ = env.step([actionAgent1.item(), actionAgent2.item()])
-            print(done)
+            next_state, rewards, done_list, _, _ = env.step([actionAgent1.item(), actionAgent2.item()])
+            done = done_list[0]
             # Convert next state to torch tensors
             next_state = [torch.tensor(s, dtype=torch.float32, device=device) for s in next_state]
             rewards = torch.tensor(rewards, device=device)
