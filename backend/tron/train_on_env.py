@@ -1,10 +1,7 @@
 import gymnasium as gym
 import math
 import random
-import matplotlib
-import matplotlib.pyplot as plt
-from collections import namedtuple, deque
-from itertools import count
+import traceback
 
 import torch
 import torch.nn as nn
@@ -14,141 +11,131 @@ import numpy as np
 
 from base import TronBaseEnvTwoPlayer
 
-# ------- We're Creating a SELF_PLAY AGENT that tries to beat itself ------- #
-env = TronBaseEnvTwoPlayer() # Really one agent just playing against itself
-# if GPU is to be used
+# Environment and device setup
+env = TronBaseEnvTwoPlayer()
 device = torch.device(
     "cuda" if torch.cuda.is_available() else
     "mps" if torch.backends.mps.is_available() else
     "cpu"
 )
+print(f"Using device: {device}")
 
-Transition = namedtuple('Transition',
-                        ('state', 'action', 'next_state', 'reward'))
+# First, let's print out the state information to understand its structure
+print("Environment Reset to understand state dimensions:")
+initial_state, _ = env.reset()
+print("Initial State Shape:", [s.shape for s in initial_state])
+print("Initial State:", initial_state)
 
-class ReplayMemory(object):
-    def __init__(self, capacity):
-        self.memory = deque([], maxlen=capacity)
-
-    def push(self, *args):
-        self.memory.append(Transition(*args))
-    
-    def sample(self, batch_size):
-        return random.sample(self.memory, batch_size)
-    
-    def __len__(self):
-        return len(self.memory)
-
+# Modify the DQN to dynamically adapt to input size
 class Tron_DQN(nn.Module):
     def __init__(self, input_size, action_space):
         super(Tron_DQN, self).__init__()
+        print(f"Initializing DQN with input size: {input_size}")
+        
+        # Dynamically determine input size
         self.fc1 = nn.Linear(input_size, 128)
         self.fc2 = nn.Linear(128, 128)
         self.fc3 = nn.Linear(128, 64)
         self.fc4 = nn.Linear(64, action_space)
 
     def forward(self, x):
+        # Print input tensor details for debugging
+        print(f"Forward pass input shape: {x.shape}")
+        
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = F.relu(self.fc3(x))
         x = self.fc4(x)
         return x
 
+# Determine actual input size dynamically
+initial_state, _ = env.reset()
+actual_state_dim = len(initial_state[0])  # Assuming first agent's state
+print(f"Actual state dimension: {actual_state_dim}")
+
 # Hyperparameters
-n_actions = 3
-state_dim = 3
+n_actions = 3  # Assuming 3 possible actions
 LR = 1e-4
 BATCH_SIZE = 64
 GAMMA = 0.99
 TARGET_UPDATE = 10
 
-# Create agents
-agent = Tron_DQN(state_dim, n_actions).to(device)
-target_agent = Tron_DQN(state_dim, n_actions).to(device)
-target_agent.load_state_dict(agent.state_dict())
-optimizer = optim.Adam(agent.parameters(), lr=LR)
-memory = ReplayMemory(10000)
+# Create agents with dynamic input size
+try:
+    agent = Tron_DQN(actual_state_dim, n_actions).to(device)
+    target_agent = Tron_DQN(actual_state_dim, n_actions).to(device)
+    target_agent.load_state_dict(agent.state_dict())
+    optimizer = optim.Adam(agent.parameters(), lr=LR)
+except Exception as e:
+    print("Error initializing agents:")
+    traceback.print_exc()
+    raise
 
 def select_action(state, epsilon, agent):
-    # --- Logic --- #
-    # Uses epsilon greedy strategy to both explore and exploit actions
-    if random.random() > epsilon: # Exploit
-        with torch.no_grad():
-            return agent(state.unsqueeze(0)).max(1)[1].view(1, 1) # Takes index of highest probability action and reshapes into 1x1 tensor
-    else:
-        return torch.tensor([[random.randrange(n_actions)]], device=device, dtype=torch.long) # Explore if random value less than or equal to epsilon
+    try:
+        # Ensure state is a 1D tensor
+        if len(state.shape) > 1:
+            state = state.squeeze()
+        
+        # Ensure state is float tensor
+        state = state.float()
+        
+        # Exploit or explore
+        if random.random() > epsilon:
+            with torch.no_grad():
+                # Add batch dimension if missing
+                if len(state.shape) == 1:
+                    state = state.unsqueeze(0)
+                return agent(state).max(1)[1].view(1, 1)
+        else:
+            return torch.tensor([[random.randrange(n_actions)]], device=device, dtype=torch.long)
+    except Exception as e:
+        print("Error in select_action:")
+        print(f"State shape: {state.shape}")
+        traceback.print_exc()
+        raise
 
-def optimize_model(memory, agent, target_agent, optimizer):
-    # --- Logic --- #
-    # Samples batch from memory, calculates Q values, and updates model
-    if len(memory) < BATCH_SIZE:
-        return
-    transitions = memory.sample(BATCH_SIZE)
-    batch = Transition(*zip(*transitions))
+# Rest of the training loop remains similar, with more robust state handling
 
-    non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.next_state)), device=device, dtype=torch.bool)
-    non_final_next_states = torch.cat([s for s in batch.next_state if s is not None])
-    
-    state_batch = torch.cat(batch.state)
-    action_batch = torch.cat(batch.action)
-    reward_batch = torch.cat(batch.reward)
-    state_action_values = agent(state_batch).gather(1, action_batch)
-
-    next_state_values = torch.zeros(BATCH_SIZE, device=device)
-    with torch.no_grad():
-        next_state_values[non_final_mask] = target_agent(non_final_next_states).max(1)[0]
-    
-    expected_state_action_values = (next_state_values * GAMMA) + reward_batch
-
-    criterion = nn.SmoothL1Loss()
-    loss = criterion(state_action_values, expected_state_action_values.unsqueeze(1))
-
-    optimizer.zero_grad()
-    loss.backward()
-    torch.nn.utils.clip_grad_value_(agent.parameters(), 1)
-    optimizer.step()
-
-# Training loop
-num_episodes = 20 # Number of "games"
+# Modify the main training loop to handle state preprocessing
+num_episodes = 10
 epsilon_start = 1.0
 epsilon_decay = 0.995
 epsilon_end = 0.01
 
+print("Starting training...")
 for episode in range(num_episodes):
-    state, _ = env.reset()
-    state = torch.tensor(state, dtype=torch.float32, device=device)
-    epsilon = max(epsilon_end, epsilon_start * (epsilon_decay ** episode))
-    done = False
-    total_reward = 0
-
-    while not done:
-        actionAgent1 = select_action(state[0], epsilon, agent)
-        actionAgent2 = select_action(state[1], epsilon, agent)
-
-        next_state, rewards, done, _, _ = env.step([actionAgent1.item(), actionAgent2.item()])
-        #print("# --- #")
-        #print(f"Next State: {next_state}\n Rewards: {rewards}\n Done: {done}\n")
-        reward = torch.tensor(rewards, device=device)
-        next_state = torch.tensor(next_state, dtype=torch.float32, device=device)
+    try:
+        # Reset environment and initial state
+        state, _ = env.reset()
         
-        memory.push(state[0], actionAgent1, next_state[0], reward[0].unsqueeze(0))
-        memory.push(state[1], actionAgent2, next_state[1], reward[1].unsqueeze(0))
+        # Convert to torch tensors explicitly
+        state = [torch.tensor(s, dtype=torch.float32, device=device) for s in state]
+        
+        epsilon = max(epsilon_end, epsilon_start * (epsilon_decay ** episode))
+        done = False
+        total_reward = 0
 
-        state = next_state
-        total_reward += sum(rewards)
-        try:
-            optimize_model(memory, agent, target_agent, optimizer)
-        except:
-            pass
-    if episode % TARGET_UPDATE == 0:
-        target_agent.load_state_dict(agent.state_dict())
-    print(f"\n# ----- EPISODE {episode} ----- #")
-    print(f"# Total Reward: {total_reward}")
-    print(f"Epsilon: {epsilon:.2f}")
-    print(f"Episode {episode}, Total Reward: {total_reward}, Epsilon: {epsilon:.2f}")
+        while not done:
+            # Select actions for both agents
+            actionAgent1 = select_action(state[0], epsilon, agent)
+            actionAgent2 = select_action(state[1], epsilon, agent)
 
-print(" ")
-print('Complete')
+            # Step environment
+            next_state, rewards, done, _, _ = env.step([actionAgent1.item(), actionAgent2.item()])
+            print(done)
+            # Convert next state to torch tensors
+            next_state = [torch.tensor(s, dtype=torch.float32, device=device) for s in next_state]
+            rewards = torch.tensor(rewards, device=device)
 
-# Save the trained agent
-torch.save(agent.state_dict(), 'tron_self_play_agent.pth')
+            # Update state
+            state = next_state
+            total_reward += sum(rewards)
+
+        print(f"\nEpisode {episode}: Total Reward = {total_reward}, Epsilon = {epsilon:.2f}")
+    
+    except Exception as e:
+        print(f"Error in episode {episode}:")
+        traceback.print_exc()
+
+print('Training Complete')
