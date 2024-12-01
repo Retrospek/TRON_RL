@@ -14,14 +14,30 @@ import numpy as np
 
 from base import TronBaseEnvTwoPlayer
 
-
-env = TronBaseEnvTwoPlayer()
+# ------- We're Creating a SELF_PLAY AGENT that tries to beat itself ------- #
+env = TronBaseEnvTwoPlayer() # Really one agent just playing against itself
 # if GPU is to be used
 device = torch.device(
     "cuda" if torch.cuda.is_available() else
     "mps" if torch.backends.mps.is_available() else
     "cpu"
 )
+
+Transition = namedtuple('Transition',
+                        ('state', 'action', 'next_state', 'reward'))
+
+class ReplayMemory(object):
+    def __init__(self, capacity):
+        self.memory = deque([], maxlen=capacity)
+
+    def push(self, *args):
+        self.memory.append(Transition(*args))
+    
+    def sample(self, batch_size):
+        return random.sample(self.memory, batch_size)
+    
+    def __len__(self):
+        return len(self.memory)
 
 class Tron_DQN(nn.Module):
     def __init__(self, input_size, action_space):
@@ -41,54 +57,61 @@ class Tron_DQN(nn.Module):
 # Hyperparameters
 n_actions = 3
 state_dim = 3
-
 LR = 1e-4
 BATCH_SIZE = 64
-
-def create_agent(state_dim, n_actions):
-    current_net = Tron_DQN(state_dim, n_actions).to(device)
-    target_net = Tron_DQN(state_dim, n_actions).to(device)
-    target_net.load_state_dict(current_net.state_dict())
-    
-    return {
-        "currentNET": current_net,
-        "targetNET": target_net,
-        "optimizer": optim.Adam(current_net.parameters(), lr=LR),
-        "memory": deque(maxlen=10000)
-    }
+GAMMA = 0.99
+TARGET_UPDATE = 10
 
 # Create agents
-agent1 = create_agent(state_dim, n_actions)
-agent2 = create_agent(state_dim, n_actions)
-AGENTS = [agent1, agent2]
+agent = Tron_DQN(state_dim, n_actions).to(device)
+target_agent = Tron_DQN(state_dim, n_actions).to(device)
+target_agent.load_state_dict(agent.state_dict())
+optimizer = optim.Adam(agent.parameters(), lr=LR)
+memory = ReplayMemory(10000)
 
-def select_action(agent, state):
-    if random.random() < agent["epsilon"]:
-        return random.randint(0, 2)  # 0, 1, or 2
-    with torch.no_grad():
-        state_tensor = torch.FloatTensor(state).unsqueeze(0).to(device)
-        q_values = agent["currentNET"](state_tensor)
-        return q_values.argmax().item()
+def select_action(state, epsilon, agent):
+    # --- Logic --- #
+    # Uses epsilon greedy strategy to both explore and exploit actions
+    if random.random() > epsilon: # Exploit
+        with torch.no_grad():
+            return agent(state.unsqueeze(0)).max(1)[1].view(1, 1) # Takes index of highest probability action and reshapes into 1x1 tensor
+    else:
+        return torch.tensor([[random.randrange(n_actions)]], device=device, dtype=torch.long) # Explore if random value less than or equal to epsilon
+
+def optimize_model(memory, agent, target_agent, optimizer):
+    # --- Logic --- #
+    # Samples batch from memory, calculates Q values, and updates model
+    if len(memory) < BATCH_SIZE:
+        return
+    transitions = memory.sample(BATCH_SIZE)
+    batch = Transition(*zip(*transitions))
+
+    non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.next_state)), device=device, dtype=torch.bool)
+    non_final_next_states = torch.cat([s for s in batch.next_state if s is not None])
     
-def store_transition(agent, state, action, reward, next_state, done):
-    agent["memory"].append((state, action, reward, next_state, done))
+    state_batch = torch.cat(batch.state)
+    action_batch = torch.cat(batch.action)
+    reward_batch = torch.cat(batch.reward)
+    state_action_values = agent(state_batch).gather(1, action_batch)
 
-def sample_batch(agent):
-    batch = random.sample(agent["memory"], BATCH_SIZE)
-    states, actions, rewards, next_states, dones = zip(*batch)
+    next_state_values = torch.zeros(BATCH_SIZE, device=device)
+    with torch.no_grad():
+        next_state_values[non_final_mask] = target_agent(non_final_next_states).max(1)[0]
+    
+    expected_state_action_values = (next_state_values * GAMMA) + reward_batch
 
-    return (
-        torch.FloatTensor(states).to(device),
-        torch.LongTensor(actions).to(device),
-        torch.FloatTensor(rewards).to(device),
-        torch.FloatTensor(next_states).to(device),
-        torch.FloatTensor(dones).to(device)
-    )
+    criterion = nn.SmoothL1Loss()
+    loss = criterion(state_action_values, expected_state_action_values.unsqueeze(1))
 
-# ---- TRAINING ----- #
-num_episodes = 1000
+    optimizer.zero_grad()
+    loss.backward()
+    torch.nn.utils.clip_grad_value_(agent.parameters(), 1)
+    optimizer.step()
+
+# Training loop
+num_episodes = 20 # Number of "games"
 epsilon_start = 1.0
-epsilon_decay = 0.995 # Increase for less reward in later episodes
+epsilon_decay = 0.995
 epsilon_end = 0.01
 
 for episode in range(num_episodes):
@@ -96,14 +119,36 @@ for episode in range(num_episodes):
     state = torch.tensor(state, dtype=torch.float32, device=device)
     epsilon = max(epsilon_end, epsilon_start * (epsilon_decay ** episode))
     done = False
+    total_reward = 0
 
     while not done:
-        # --- Selecting Action --- #
-        actionAgent1 = select_action(state[0], epsilon, agent1)
-        actionAgent2 = select_action(state[1], epsilon, agent2)
+        actionAgent1 = select_action(state[0], epsilon, agent)
+        actionAgent2 = select_action(state[1], epsilon, agent)
 
-        # --- Take the Action --- #
-        next_state, rewards, done, _, _ = env.step([actionAgent1, actionAgent2])
+        next_state, rewards, done, _, _ = env.step([actionAgent1.item(), actionAgent2.item()])
+        #print("# --- #")
+        #print(f"Next State: {next_state}\n Rewards: {rewards}\n Done: {done}\n")
+        reward = torch.tensor(rewards, device=device)
+        next_state = torch.tensor(next_state, dtype=torch.float32, device=device)
+        
+        memory.push(state[0], actionAgent1, next_state[0], reward[0].unsqueeze(0))
+        memory.push(state[1], actionAgent2, next_state[1], reward[1].unsqueeze(0))
 
-        next_state = torch.tensor 
+        state = next_state
+        total_reward += sum(rewards)
+        try:
+            optimize_model(memory, agent, target_agent, optimizer)
+        except:
+            pass
+    if episode % TARGET_UPDATE == 0:
+        target_agent.load_state_dict(agent.state_dict())
+    print(f"\n# ----- EPISODE {episode} ----- #")
+    print(f"# Total Reward: {total_reward}")
+    print(f"Epsilon: {epsilon:.2f}")
+    print(f"Episode {episode}, Total Reward: {total_reward}, Epsilon: {epsilon:.2f}")
 
+print(" ")
+print('Complete')
+
+# Save the trained agent
+torch.save(agent.state_dict(), 'tron_self_play_agent.pth')
