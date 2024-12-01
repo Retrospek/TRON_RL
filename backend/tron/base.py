@@ -36,7 +36,7 @@ class TronBaseEnvTwoPlayer(gym.Env):
         # State variables
         self.state = [np.zeros(3), np.zeros(3)]
         self.steps_taken = 0
-        self.max_moves = 300
+        self.max_moves = 500
         self.agent1_reward = 0
         self.agent2_reward = 0
 
@@ -104,12 +104,12 @@ class TronBaseEnvTwoPlayer(gym.Env):
 
         new_position_agent1, agent1_direction, chang_dir_agent1 = self._compute_new_position(self.agent_positions[0], agent1_action, 0)
         new_position_agent2, agent2_direction, chang_dir_agent2 = self._compute_new_position(self.agent_positions[1], agent2_action, 1)
-        print(f"Agent 1 Changed Direction: {chang_dir_agent1}")
-        print(f"Agent 2 Changed Direction: {chang_dir_agent2}")
+        #print(f"Agent 1 Changed Direction: {chang_dir_agent1}")
+        #print(f"Agent 2 Changed Direction: {chang_dir_agent2}")
         agent1_collision = self._is_collision(new_position_agent1, 0)
         agent2_collision = self._is_collision(new_position_agent2, 1)
 
-        print(f"""Agent 1 Collission Boolean: {agent1_collision}\nAgent 2 Collission Boolean: {agent2_collision}""")
+        #print(f"""Agent 1 Collission Boolean: {agent1_collision}\nAgent 2 Collission Boolean: {agent2_collision}""")
 
         # Determine rewards and done state based on collision and direction change scenarios
         if not(chang_dir_agent1 and chang_dir_agent2):
@@ -155,7 +155,7 @@ class TronBaseEnvTwoPlayer(gym.Env):
         self.state[1] = np.array([x_diff_agent2, y_diff_agent2, dot_product])
 
         rewards = [agent1_reward, agent2_reward]
-        print(f"Step {self.steps_taken}: Agent 1 Trail: {self.trails[0]}, Agent 2 Trail: {self.trails[1]}")
+        #print(f"Step {self.steps_taken}: Agent 1 Trail: {self.trails[0]}, Agent 2 Trail: {self.trails[1]}")
 
         return self.state, rewards, [done], [False, False], {"steps": self.steps_taken}
 
