@@ -22,21 +22,26 @@ class Game:
         
         self.running = True
 
-        self.red_head = [float(rx), float(ry)]
+        self.ai_head = [float(rx), float(ry)]
         self.blue_head = [float(bx), float(by)]
-        self.red_trail = [self.red_head[:]]
+        self.ai_trail = [self.ai_head[:]]
         self.blue_trail = [self.blue_head[:]]
 
-        self.red_dir = [1, 0]
+        self.ai_dir = 0
         self.blue_dir = [-1, 0]
 
         self.trail_thickness = 5
         self.speed = 5
 
-        self.red_score = 0
+        self.ai_score = 0
         self.blue_score = 0
         self.game_over = False
         self.winner = ""
+
+    def ai_move(self):
+        
+
+        
 
     def play_startup_animation(self):
         try:
@@ -111,9 +116,9 @@ class Game:
             pygame.draw.line(self.screen, color, start, end, self.trail_thickness)
 
     def update_position(self):
-        self.red_head[0] += self.red_dir[0] * self.speed
-        self.red_head[1] += self.red_dir[1] * self.speed
-        self.red_trail.append(self.red_head[:])
+        self.ai_head[0] += self.ai_dir[0] * self.speed
+        self.ai_head[1] += self.ai_dir[1] * self.speed
+        self.ai_trail.append(self.ai_head[:])
 
         self.blue_head[0] += self.blue_dir[0] * self.speed
         self.blue_head[1] += self.blue_dir[1] * self.speed
@@ -130,15 +135,18 @@ class Game:
 
     def handle_input(self):
         keys = pygame.key.get_pressed()
-        if keys[pygame.K_w] and self.red_dir != [0, 1]:
-            self.red_dir = [0, -1]
-        elif keys[pygame.K_s] and self.red_dir != [0, -1]:
-            self.red_dir = [0, 1]
-        elif keys[pygame.K_a] and self.red_dir != [1, 0]:
-            self.red_dir = [-1, 0]
-        elif keys[pygame.K_d] and self.red_dir != [-1, 0]:
-            self.red_dir = [1, 0]
 
+        # --- AI MOVEMENTS --- #
+        if keys[pygame.K_w] and self.ai_dir != [0, 1]:
+            self.ai_dir = [0, -1]
+        elif keys[pygame.K_s] and self.ai_dir != [0, -1]:
+            self.ai_dir = [0, 1]
+        elif keys[pygame.K_a] and self.ai_dir != [1, 0]:
+            self.ai_dir = [-1, 0]
+        elif keys[pygame.K_d] and self.ai_dir != [-1, 0]:
+            self.ai_dir = [1, 0]
+
+        # --- HUMAN MOVEMENTS --- #
         if keys[pygame.K_UP] and self.blue_dir != [0, 1]:
             self.blue_dir = [0, -1]
         elif keys[pygame.K_DOWN] and self.blue_dir != [0, -1]:
@@ -173,11 +181,11 @@ class Game:
         
 
     def reset_game(self):
-        self.red_head = [200, 400]
+        self.ai_head = [200, 400]
         self.blue_head = [800, 400]
-        self.red_trail = [self.red_head[:]]
+        self.ai_trail = [self.ai_head[:]]
         self.blue_trail = [self.blue_head[:]]
-        self.red_dir = [1, 0]
+        self.ai_dir = [1, 0]
         self.blue_dir = [-1, 0]
         self.game_over = False
         self.winner = ""
@@ -213,21 +221,21 @@ class Game:
                 self.handle_input()
                 self.update_position()
 
-                if self.check_collision(self.red_head, self.blue_trail) or self.check_collision(self.red_head, self.red_trail[:-1]):
+                if self.check_collision(self.ai_head, self.blue_trail) or self.check_collision(self.ai_head, self.ai_trail[:-1]):
                     self.game_over = True
                     self.winner = "Blue"
                     with open("winners.txt", "a") as win:
                         win.write("Winner: Blue\n")
-                if self.check_collision(self.blue_head, self.red_trail) or self.check_collision(self.blue_head, self.blue_trail[:-1]):
+                if self.check_collision(self.blue_head, self.ai_trail) or self.check_collision(self.blue_head, self.blue_trail[:-1]):
                     self.game_over = True
                     self.winner = "Red"
                     with open("winners.txt", "a") as win:
                         win.write("Winner: Red\n")
 
-                self.draw_trail(self.red_trail, self.RED)
+                self.draw_trail(self.ai_trail, self.RED)
                 self.draw_trail(self.blue_trail, self.BLUE)
 
-                pygame.draw.circle(self.screen, self.RED, (int(self.red_head[0]), int(self.red_head[1])), self.trail_thickness)
+                pygame.draw.circle(self.screen, self.RED, (int(self.ai_head[0]), int(self.ai_head[1])), self.trail_thickness)
                 pygame.draw.circle(self.screen, self.BLUE, (int(self.blue_head[0]), int(self.blue_head[1])), self.trail_thickness)
 
             pygame.display.update()
